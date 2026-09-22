@@ -1,0 +1,19 @@
+{
+  "name": "atrium",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev -w @atrium/web",
+    "build": "npm run build -w @atrium/web",
+    "lint": "npm run lint -w @atrium/web",
+    "test": "vitest run",
+    "test:program": "cargo test --manifest-path programs/atrium/Cargo.toml"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.2",
+    "vitest": "^3.2.4"
+  }
+}
