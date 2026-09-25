@@ -1,23 +1,36 @@
 "use client";
 
 import { usePathname } from "next/navigation";
+import { useState } from "react";
+
+const CLIPS = [
+  "/video/estate.mp4",
+  "/video/estate-2.mp4",
+  "/video/estate-3.mp4",
+  "/video/estate-4.mp4",
+  "/video/estate-5.mp4"
+] as const;
 
 export function VideoBackdrop() {
   const quiet = usePathname() !== "/";
+  const [index, setIndex] = useState(0);
+  const src = CLIPS[index];
+  const nextSrc = CLIPS[(index + 1) % CLIPS.length];
 
   return (
     <div className="fixed inset-0 z-0 overflow-hidden" aria-hidden>
       <video
-        className="h-full w-full scale-105 object-cover"
+        key={src}
+        className="estate-clip h-full w-full scale-105 object-cover"
         autoPlay
         muted
-        loop
         playsInline
         preload="auto"
+        onEnded={() => setIndex((current) => (current + 1) % CLIPS.length)}
       >
-        {/* Mixkit: Flying over suburban houses with quiet streets */}
-        <source src="/video/estate.mp4" type="video/mp4" />
+        <source src={src} type="video/mp4" />
       </video>
+      <video className="hidden" muted playsInline preload="auto" src={nextSrc} />
       <div
         className={
           quiet
