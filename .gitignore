@@ -8,6 +8,7 @@ coverage
 .env
 .env.local
 .vercel
+.deploy
 
 target
 test-ledger

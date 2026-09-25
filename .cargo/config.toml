@@ -1,0 +1,5 @@
+[target.sbpf-solana-solana]
+linker = "rust-lld"
+
+[target.sbpfv1-solana-solana]
+linker = "rust-lld"

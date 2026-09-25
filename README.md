@@ -4,6 +4,7 @@ Dues and treasury for Nigerian gated estates. A manager posts a service charge o
 
 This is the money rail. [EstateOS](https://github.com/odeyemitobi) stays off-chain ops.
 
+Live demo: [atrium-web-two.vercel.app](https://atrium-web-two.vercel.app/)
 Colosseum: [Atrium on Arena](https://colosseum.com/arena/projects/atrium)
 
 ## Demo estate
@@ -59,9 +60,9 @@ anchor test
 
 ```
 NEXT_PUBLIC_SOLANA_RPC=https://api.devnet.solana.com
-NEXT_PUBLIC_ATRIUM_PROGRAM_ID=56J6kiYHuu9c1qE3XxhndugKPaqo7oWUNuU5LECBw9UY
+NEXT_PUBLIC_ATRIUM_PROGRAM_ID=GH6m182Lprbfzp4TYwBmTXW3sT6c2ctoF5cyeySRuZkB
 NEXT_PUBLIC_ATRIUM_MINT=4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU
-NEXT_PUBLIC_ATRIUM_MANAGER=<manager-pubkey>
+NEXT_PUBLIC_ATRIUM_MANAGER=HPE2LaJoEHTsMmfv75bRCADqifyCfappD2hfHGaqEMux
 NEXT_PUBLIC_ATRIUM_ESTATE_NAME=Cedar Grove Estate
 ```
 
