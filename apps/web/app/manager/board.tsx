@@ -16,10 +16,10 @@ export function ManagerBoard() {
   return (
     <section className="mt-10">
       <div className="mb-4 flex items-end justify-between">
-        <h2 className="text-2xl">Units</h2>
-        <p className="text-sm text-[var(--muted)]">Pay from the resident screen. Receipts land here.</p>
+        <h2 className="text-2xl text-[var(--paper)]">Units</h2>
+        <p className="text-sm text-[#d8d0bf]">Pay from the resident screen. Receipts land here.</p>
       </div>
-      <div className="overflow-hidden rounded-2xl border border-[var(--line)] bg-[var(--panel)]">
+      <div className="glass overflow-hidden rounded-2xl">
         <table className="w-full text-left text-sm">
           <thead className="border-b border-[var(--line)] text-xs uppercase tracking-[0.16em] text-[var(--muted)]">
             <tr>

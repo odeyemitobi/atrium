@@ -14,8 +14,8 @@ export function Shell({
   action?: ReactNode;
 }) {
   return (
-    <div className="mx-auto min-h-screen max-w-5xl px-5 py-6">
-      <header className="flex flex-wrap items-center justify-between gap-4 border-b border-[var(--line)] pb-5">
+    <div className="page-veil mx-auto min-h-screen max-w-5xl px-5 py-6">
+      <header className="glass flex flex-wrap items-center justify-between gap-4 rounded-2xl px-4 py-3">
         <Link href="/" className="serif text-2xl tracking-tight">
           Atrium
         </Link>
@@ -33,9 +33,11 @@ export function Shell({
         <div className="flex flex-wrap items-end justify-between gap-4 py-8">
           <div>
             {eyebrow ? (
-              <p className="text-xs uppercase tracking-[0.2em] text-[var(--muted)]">{eyebrow}</p>
+              <p className="text-xs uppercase tracking-[0.2em] text-[#d8d0bf]">{eyebrow}</p>
             ) : null}
-            {title ? <h1 className="mt-2 text-4xl leading-none">{title}</h1> : null}
+            {title ? (
+              <h1 className="mt-2 text-4xl leading-none text-[var(--paper)]">{title}</h1>
+            ) : null}
           </div>
           {action}
         </div>
