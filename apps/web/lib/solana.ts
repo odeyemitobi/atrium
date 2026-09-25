@@ -17,7 +17,9 @@ import {
   unitPda,
   type WalletLike
 } from "@atrium/sdk";
+import { getAccount, getAssociatedTokenAddressSync } from "@solana/spl-token";
 import { Connection, PublicKey, Transaction } from "@solana/web3.js";
+import { formatUsdc } from "@/lib/format";
 
 export const RPC =
   process.env.NEXT_PUBLIC_SOLANA_RPC ?? "https://api.devnet.solana.com";
@@ -65,6 +67,14 @@ export async function payUnitLevy(args: {
   const [levyKey] = levyPda(estateKey, levyIndex(args.levyId), programId);
   const mint = mintFromEnv();
   const connection = getConnection();
+  const needed = ngnToUsdcBase(amountPerUnitNgn(levy));
+  const available = await payerUsdcBalance(connection, args.wallet.publicKey, mint);
+  if (available < needed) {
+    throw new Error(
+      `Need ${formatUsdc(needed)}; Phantom has ${formatUsdc(available)}. Pay Diesel first — it is about 14 USDC and the faucet sent 20.`
+    );
+  }
+
   const ix = payLevyIx({
     payer: args.wallet.publicKey,
     estate: estateKey,
@@ -81,10 +91,39 @@ export async function payUnitLevy(args: {
     lastValidBlockHeight
   }).add(ix);
 
-  const signed = await args.wallet.signTransaction(tx);
-  const signature = await connection.sendRawTransaction(signed.serialize());
-  await connection.confirmTransaction({ signature, blockhash, lastValidBlockHeight });
-  return signature;
+  try {
+    const signed = await args.wallet.signTransaction(tx);
+    const signature = await connection.sendRawTransaction(signed.serialize());
+    await connection.confirmTransaction({ signature, blockhash, lastValidBlockHeight });
+    return signature;
+  } catch (error) {
+    throw new Error(friendlyPayError(error, needed));
+  }
+}
+
+export async function payerUsdcBalance(
+  connection: Connection,
+  owner: PublicKey,
+  mint = mintFromEnv()
+): Promise<number> {
+  const ata = getAssociatedTokenAddressSync(mint, owner);
+  try {
+    const account = await getAccount(connection, ata);
+    return Number(account.amount);
+  } catch {
+    return 0;
+  }
+}
+
+function friendlyPayError(error: unknown, needed: number): string {
+  const text = error instanceof Error ? error.message : String(error);
+  if (/InvalidAmount|0x1772|6002/i.test(text)) {
+    return `Need ${formatUsdc(needed)} in Circle Devnet USDC. Pay Diesel first (about 14 USDC).`;
+  }
+  if (/User rejected|rejected the request/i.test(text)) {
+    return "Payment cancelled in Phantom.";
+  }
+  return text.split("\n")[0] ?? "Payment failed.";
 }
 
 export function levyOnChainAmount(levyId: string): number {

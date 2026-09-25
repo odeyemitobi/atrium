@@ -3,7 +3,8 @@
 import { amountPerUnitNgn, levies, type UnitSeed } from "@atrium/seed";
 import { useEffect, useState } from "react";
 import { PayButton, ReceiptLink } from "@/components/pay-button";
-import { formatNgn } from "@/lib/format";
+import { formatNgn, formatUsdc } from "@/lib/format";
+import { levyOnChainAmount } from "@/lib/solana";
 import {
   isLevyPaid,
   loadReceipts,
@@ -30,7 +31,7 @@ export function ResidentLedger({ unit }: { unit: UnitSeed }) {
         <p className="mt-2 text-sm text-[var(--muted)]">
           {outstanding === 0
             ? "This unit is current."
-            : "Pay the open levy from Phantom on Solana devnet."}
+            : "The Circle faucet sent 20 USDC. Diesel is about 14 USDC; May service is about 45 USDC — pay Diesel first."}
         </p>
       </article>
 
@@ -48,7 +49,15 @@ export function ResidentLedger({ unit }: { unit: UnitSeed }) {
                   {levy.kind} · due {levy.due}
                 </p>
                 <h2 className="mt-1 text-2xl">{levy.name}</h2>
-                <p className="mt-2 text-sm">{formatNgn(amountPerUnitNgn(levy))} for this unit</p>
+                <p className="mt-2 text-sm">
+                  {formatNgn(amountPerUnitNgn(levy))} · {formatUsdc(levyOnChainAmount(levy.id))} for
+                  this unit
+                </p>
+                {levy.id === "diesel" ? (
+                  <p className="mt-1 text-xs text-[var(--good)]">Demo pay — covered by 20 USDC</p>
+                ) : (
+                  <p className="mt-1 text-xs text-[var(--muted)]">Needs ~45 USDC — more than the faucet sent</p>
+                )}
               </div>
               {paid ? (
                 <div className="text-right">
