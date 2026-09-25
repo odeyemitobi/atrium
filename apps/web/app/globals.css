@@ -42,6 +42,19 @@ body {
   z-index: 1;
 }
 
+.estate-clip {
+  animation: estate-fade 900ms ease-out;
+}
+
+@keyframes estate-fade {
+  from {
+    opacity: 0.35;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
 .scene-grain {
   pointer-events: none;
   position: absolute;
