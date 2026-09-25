@@ -9,10 +9,12 @@ import {
 import {
   DEFAULT_PROGRAM_ID,
   DEVNET_USDC_MINT,
+  decodeEstate,
   estatePda,
   levyPda,
   mintFromEnv,
   payLevyIx,
+  postLevyIx,
   programIdFromEnv,
   unitPda,
   type WalletLike
@@ -20,6 +22,8 @@ import {
 import { getAccount, getAssociatedTokenAddressSync } from "@solana/spl-token";
 import { Connection, PublicKey, Transaction } from "@solana/web3.js";
 import { formatUsdc } from "@/lib/format";
+
+export const MAX_DEMO_LEVIES = 8;
 
 export const RPC =
   process.env.NEXT_PUBLIC_SOLANA_RPC ?? "https://api.devnet.solana.com";
@@ -47,10 +51,25 @@ export function levyIndex(levyId: string): number {
   return index;
 }
 
+async function sendWalletTx(wallet: WalletLike, ix: ReturnType<typeof payLevyIx>): Promise<string> {
+  const connection = getConnection();
+  const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash();
+  const tx = new Transaction({
+    feePayer: wallet.publicKey,
+    blockhash,
+    lastValidBlockHeight
+  }).add(ix);
+  const signed = await wallet.signTransaction(tx);
+  const signature = await connection.sendRawTransaction(signed.serialize());
+  await connection.confirmTransaction({ signature, blockhash, lastValidBlockHeight });
+  return signature;
+}
+
 export async function payUnitLevy(args: {
   wallet: WalletLike;
   unitCode: string;
-  levyId: string;
+  levyIndex: number;
+  amountPerUnit: number;
 }): Promise<string> {
   const configured = configuredEstatePda();
   if (!configured) {
@@ -59,15 +78,12 @@ export async function payUnitLevy(args: {
     );
   }
 
-  const levy = levies.find((item) => item.id === args.levyId);
-  if (!levy) throw new Error(`Unknown levy ${args.levyId}`);
-
   const { estate: estateKey, programId } = configured;
   const [unit] = unitPda(estateKey, args.unitCode, programId);
-  const [levyKey] = levyPda(estateKey, levyIndex(args.levyId), programId);
+  const [levyKey] = levyPda(estateKey, args.levyIndex, programId);
   const mint = mintFromEnv();
   const connection = getConnection();
-  const needed = ngnToUsdcBase(amountPerUnitNgn(levy));
+  const needed = args.amountPerUnit;
   const available = await payerUsdcBalance(connection, args.wallet.publicKey, mint);
   if (available < needed) {
     throw new Error(
@@ -75,30 +91,78 @@ export async function payUnitLevy(args: {
     );
   }
 
-  const ix = payLevyIx({
-    payer: args.wallet.publicKey,
-    estate: estateKey,
-    unit,
-    levy: levyKey,
-    mint,
-    programId
-  });
-
-  const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash();
-  const tx = new Transaction({
-    feePayer: args.wallet.publicKey,
-    blockhash,
-    lastValidBlockHeight
-  }).add(ix);
-
   try {
-    const signed = await args.wallet.signTransaction(tx);
-    const signature = await connection.sendRawTransaction(signed.serialize());
-    await connection.confirmTransaction({ signature, blockhash, lastValidBlockHeight });
-    return signature;
+    return await sendWalletTx(
+      args.wallet,
+      payLevyIx({
+        payer: args.wallet.publicKey,
+        estate: estateKey,
+        unit,
+        levy: levyKey,
+        mint,
+        programId
+      })
+    );
   } catch (error) {
     throw new Error(friendlyPayError(error, needed));
   }
+}
+
+export async function postLevyWithWallet(args: {
+  wallet: WalletLike;
+  title: string;
+  kind: 0 | 1;
+  amountPerUnit: number;
+  dueTs: number;
+}): Promise<string> {
+  const configured = configuredEstatePda();
+  if (!configured) {
+    throw new Error("Set NEXT_PUBLIC_ATRIUM_MANAGER before posting a levy.");
+  }
+  const manager = managerPubkey();
+  if (!manager || !args.wallet.publicKey.equals(manager)) {
+    throw new Error("Connect the Cedar Grove manager wallet to post a levy.");
+  }
+
+  const connection = getConnection();
+  const estateInfo = await connection.getAccountInfo(configured.estate);
+  if (!estateInfo) throw new Error("Cedar Grove estate is not on this program yet.");
+  const index = decodeEstate(estateInfo.data).levyCount;
+  if (index >= MAX_DEMO_LEVIES) {
+    throw new Error(`Demo estate already has ${MAX_DEMO_LEVIES} levies.`);
+  }
+
+  return sendWalletTx(
+    args.wallet,
+    postLevyIx({
+      manager,
+      estate: configured.estate,
+      index,
+      kind: args.kind,
+      title: args.title,
+      amountPerUnit: args.amountPerUnit,
+      dueTs: args.dueTs,
+      programId: configured.programId
+    })
+  );
+}
+
+export async function postLevyViaApi(args: {
+  title: string;
+  kind: 0 | 1;
+  amountNgn: number;
+  dueTs: number;
+}): Promise<string> {
+  const response = await fetch("/api/post-levy", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(args)
+  });
+  const payload = (await response.json()) as { signature?: string; error?: string };
+  if (!response.ok || !payload.signature) {
+    throw new Error(payload.error ?? "Could not post levy.");
+  }
+  return payload.signature;
 }
 
 export async function payerUsdcBalance(

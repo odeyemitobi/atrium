@@ -262,5 +262,123 @@ export async function sendPayLevy(args: {
   return signature;
 }
 
+function asBytes(data: Uint8Array): Uint8Array {
+  return data instanceof Uint8Array ? data : new Uint8Array(data);
+}
+
+function readU16LE(data: Uint8Array, offset: number): number {
+  return data[offset]! + (data[offset + 1]! << 8);
+}
+
+function readU64LE(data: Uint8Array, offset: number): bigint {
+  const bytes = asBytes(data);
+  return new DataView(bytes.buffer, bytes.byteOffset + offset, 8).getBigUint64(0, true);
+}
+
+function readI64LE(data: Uint8Array, offset: number): bigint {
+  const bytes = asBytes(data);
+  return new DataView(bytes.buffer, bytes.byteOffset + offset, 8).getBigInt64(0, true);
+}
+
+export function paddedUtf8(data: Uint8Array, offset: number, length: number): string {
+  const slice = asBytes(data).subarray(offset, offset + length);
+  const end = slice.indexOf(0);
+  return new TextDecoder().decode(end === -1 ? slice : slice.subarray(0, end));
+}
+
+export type DecodedEstate = {
+  manager: PublicKey;
+  mint: PublicKey;
+  name: string;
+  unitCount: number;
+  levyCount: number;
+  bump: number;
+};
+
+export type DecodedLevy = {
+  estate: PublicKey;
+  kind: 0 | 1;
+  title: string;
+  amountPerUnit: bigint;
+  dueTs: bigint;
+  paidCount: number;
+  index: number;
+  bump: number;
+};
+
+export type DecodedReceipt = {
+  estate: PublicKey;
+  levy: PublicKey;
+  unit: PublicKey;
+  payer: PublicKey;
+  amount: bigint;
+  paidAt: bigint;
+  bump: number;
+};
+
+export type DecodedUnit = {
+  estate: PublicKey;
+  resident: PublicKey;
+  code: string;
+  bump: number;
+};
+
+export function decodeEstate(data: Uint8Array): DecodedEstate {
+  if (data.length < 109) throw new Error("estate account too small");
+  return {
+    manager: new PublicKey(data.subarray(8, 40)),
+    mint: new PublicKey(data.subarray(40, 72)),
+    name: paddedUtf8(data, 72, 32),
+    unitCount: readU16LE(data, 104),
+    levyCount: readU16LE(data, 106),
+    bump: data[108]!
+  };
+}
+
+export function decodeLevy(data: Uint8Array): DecodedLevy {
+  if (data.length < 94) throw new Error("levy account too small");
+  return {
+    estate: new PublicKey(data.subarray(8, 40)),
+    kind: (data[40] === 1 ? 1 : 0) as 0 | 1,
+    title: paddedUtf8(data, 41, 32),
+    amountPerUnit: readU64LE(data, 73),
+    dueTs: readI64LE(data, 81),
+    paidCount: readU16LE(data, 89),
+    index: readU16LE(data, 91),
+    bump: data[93]!
+  };
+}
+
+export function decodeReceipt(data: Uint8Array): DecodedReceipt {
+  if (data.length < 153) throw new Error("receipt account too small");
+  return {
+    estate: new PublicKey(data.subarray(8, 40)),
+    levy: new PublicKey(data.subarray(40, 72)),
+    unit: new PublicKey(data.subarray(72, 104)),
+    payer: new PublicKey(data.subarray(104, 136)),
+    amount: readU64LE(data, 136),
+    paidAt: readI64LE(data, 144),
+    bump: data[152]!
+  };
+}
+
+export function readTokenAmount(data: Uint8Array): bigint {
+  return readU64LE(data, 64);
+}
+
+export function decodeUnit(data: Uint8Array): DecodedUnit {
+  if (data.length < 89) throw new Error("unit account too small");
+  return {
+    estate: new PublicKey(data.subarray(8, 40)),
+    resident: new PublicKey(data.subarray(40, 72)),
+    code: paddedUtf8(data, 72, 16),
+    bump: data[88]!
+  };
+}
+
+export function treasuryAta(estate: PublicKey, mint = mintFromEnv()): PublicKey {
+  return getAssociatedTokenAddressSync(mint, estate, true);
+}
+
 export { levyKindByte, encodeEstateName, encodeUnitCode, encodeLevyTitle };
 export { TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID, getAssociatedTokenAddressSync };
