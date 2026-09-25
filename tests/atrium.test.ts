@@ -1,6 +1,7 @@
 import {
   amountPerUnitNgn,
   encodeEstateName,
+  encodeLevyTitle,
   encodeUnitCode,
   estate,
   estateOutstandingNgn,
@@ -14,6 +15,9 @@ import {
 } from "../packages/seed/src/index";
 import {
   DEFAULT_PROGRAM_ID,
+  decodeEstate,
+  decodeLevy,
+  decodeReceipt,
   discriminator,
   estatePda,
   levyPda,
@@ -73,5 +77,56 @@ describe("program addresses", () => {
     const keys = [estateKey, unit, levy, receipt].map((key) => key.toBase58());
     expect(new Set(keys).size).toBe(4);
     expect(encodeUnitCode("B-018")[0]).toBe("B".charCodeAt(0));
+  });
+
+  it("decodes estate, levy, and receipt account layouts", () => {
+    const manager = Keypair.generate().publicKey;
+    const mint = Keypair.generate().publicKey;
+    const estateKey = Keypair.generate().publicKey;
+    const unitKey = Keypair.generate().publicKey;
+    const levyKey = Keypair.generate().publicKey;
+    const payer = Keypair.generate().publicKey;
+
+    const estateData = Buffer.alloc(109);
+    manager.toBuffer().copy(estateData, 8);
+    mint.toBuffer().copy(estateData, 40);
+    Buffer.from(encodeEstateName()).copy(estateData, 72);
+    estateData.writeUInt16LE(4, 104);
+    estateData.writeUInt16LE(2, 106);
+    estateData[108] = 255;
+    const decodedEstate = decodeEstate(estateData);
+    expect(decodedEstate.manager.equals(manager)).toBe(true);
+    expect(decodedEstate.name).toBe("Cedar Grove Estate");
+    expect(decodedEstate.unitCount).toBe(4);
+    expect(decodedEstate.levyCount).toBe(2);
+
+    const levyData = Buffer.alloc(94);
+    estateKey.toBuffer().copy(levyData, 8);
+    levyData[40] = 1;
+    Buffer.from(encodeLevyTitle("Diesel levy")).copy(levyData, 41);
+    levyData.writeBigUInt64LE(13_949_333n, 73);
+    levyData.writeBigInt64LE(1748908800n, 81);
+    levyData.writeUInt16LE(1, 89);
+    levyData.writeUInt16LE(1, 91);
+    levyData[93] = 7;
+    const decodedLevy = decodeLevy(levyData);
+    expect(decodedLevy.kind).toBe(1);
+    expect(decodedLevy.title).toBe("Diesel levy");
+    expect(decodedLevy.amountPerUnit).toBe(13_949_333n);
+    expect(decodedLevy.paidCount).toBe(1);
+    expect(decodedLevy.index).toBe(1);
+
+    const receiptData = Buffer.alloc(153);
+    estateKey.toBuffer().copy(receiptData, 8);
+    levyKey.toBuffer().copy(receiptData, 40);
+    unitKey.toBuffer().copy(receiptData, 72);
+    payer.toBuffer().copy(receiptData, 104);
+    receiptData.writeBigUInt64LE(13_949_333n, 136);
+    receiptData.writeBigInt64LE(1_700_000_000n, 144);
+    receiptData[152] = 3;
+    const decodedReceipt = decodeReceipt(receiptData);
+    expect(decodedReceipt.payer.equals(payer)).toBe(true);
+    expect(decodedReceipt.amount).toBe(13_949_333n);
+    expect(decodedReceipt.paidAt).toBe(1_700_000_000n);
   });
 });

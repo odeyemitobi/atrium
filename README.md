@@ -66,7 +66,7 @@ NEXT_PUBLIC_ATRIUM_MANAGER=HPE2LaJoEHTsMmfv75bRCADqifyCfappD2hfHGaqEMux
 NEXT_PUBLIC_ATRIUM_ESTATE_NAME=Cedar Grove Estate
 ```
 
-Connect Phantom and pay an unpaid levy. The UI sends `pay_levy` and records the signature.
+Connect Phantom and pay an unpaid levy. The manager board and resident ledger read treasury, levies, and receipts from Devnet. Post a levy from `/manager` — it calls `post_levy`.
 
 ## Out of scope
 
