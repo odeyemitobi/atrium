@@ -1,15 +1,15 @@
 [toolchain]
-anchor_version = "0.31.1"
+anchor_version = "0.32.2"
 
 [features]
 resolution = true
 skip-lint = false
 
 [programs.devnet]
-atrium = "56J6kiYHuu9c1qE3XxhndugKPaqo7oWUNuU5LECBw9UY"
+atrium = "GH6m182Lprbfzp4TYwBmTXW3sT6c2ctoF5cyeySRuZkB"
 
 [programs.localnet]
-atrium = "56J6kiYHuu9c1qE3XxhndugKPaqo7oWUNuU5LECBw9UY"
+atrium = "GH6m182Lprbfzp4TYwBmTXW3sT6c2ctoF5cyeySRuZkB"
 
 [provider]
 cluster = "devnet"

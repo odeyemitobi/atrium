@@ -15,7 +15,7 @@ import {
 import { sha256 } from "js-sha256";
 
 export const DEFAULT_PROGRAM_ID = new PublicKey(
-  "56J6kiYHuu9c1qE3XxhndugKPaqo7oWUNuU5LECBw9UY"
+  "GH6m182Lprbfzp4TYwBmTXW3sT6c2ctoF5cyeySRuZkB"
 );
 
 export const DEVNET_USDC_MINT = new PublicKey(

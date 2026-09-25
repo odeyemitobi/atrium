@@ -10,8 +10,8 @@
   },
   "dependencies": {
     "@atrium/seed": "*",
-    "@solana/spl-token": "^0.4.13",
-    "@solana/web3.js": "^1.98.4",
+    "@solana/spl-token": "^0.4.15",
+    "@solana/web3.js": "^1.99.0",
     "js-sha256": "^0.11.1"
   }
 }

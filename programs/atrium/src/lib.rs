@@ -4,7 +4,7 @@ use anchor_spl::{
     token::{transfer, Mint, Token, TokenAccount, Transfer},
 };
 
-declare_id!("56J6kiYHuu9c1qE3XxhndugKPaqo7oWUNuU5LECBw9UY");
+declare_id!("GH6m182Lprbfzp4TYwBmTXW3sT6c2ctoF5cyeySRuZkB");
 
 pub const ESTATE_SEED: &[u8] = b"estate";
 pub const UNIT_SEED: &[u8] = b"unit";
@@ -294,7 +294,7 @@ pub enum AtriumError {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use anchor_lang::solana_program::pubkey::Pubkey;
+    use anchor_lang::prelude::Pubkey;
 
     #[test]
     fn estate_account_space_is_stable() {
