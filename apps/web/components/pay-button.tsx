@@ -37,7 +37,8 @@ export function PayButton({
         amountNgn: amountPerUnitNgn(levy)
       });
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Payment failed.");
+      const text = err instanceof Error ? err.message : "Payment failed.";
+      setError(text.split("\n")[0] ?? "Payment failed.");
     } finally {
       setBusy(false);
     }
