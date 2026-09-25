@@ -24,7 +24,7 @@ export function ResidentLedger({ unit }: { unit: UnitSeed }) {
 
   return (
     <div className="space-y-6">
-      <article className="rounded-2xl border border-[var(--line)] bg-[var(--panel)] p-6">
+      <article className="glass rounded-2xl p-6">
         <p className="text-xs uppercase tracking-[0.18em] text-[var(--muted)]">Your ledger</p>
         <p className="serif mt-2 text-4xl">{formatNgn(outstanding)}</p>
         <p className="mt-2 text-sm text-[var(--muted)]">
@@ -41,7 +41,7 @@ export function ResidentLedger({ unit }: { unit: UnitSeed }) {
           return (
             <article
               key={levy.id}
-              className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-[var(--line)] bg-[var(--panel)] p-5"
+              className="glass flex flex-wrap items-center justify-between gap-4 rounded-2xl p-5"
             >
               <div>
                 <p className="text-xs uppercase tracking-[0.18em] text-[var(--muted)]">

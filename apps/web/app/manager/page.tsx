@@ -34,7 +34,7 @@ export default function ManagerPage() {
         {levies.map((levy) => (
           <article
             key={levy.id}
-            className="rounded-2xl border border-[var(--line)] bg-[var(--panel)] p-5"
+            className="glass rounded-2xl p-5"
           >
             <p className="text-xs uppercase tracking-[0.18em] text-[var(--muted)]">{levy.kind}</p>
             <h2 className="mt-2 text-2xl">{levy.name}</h2>
@@ -61,7 +61,7 @@ export default function ManagerPage() {
 
 function Stat({ label, value, detail }: { label: string; value: string; detail: string }) {
   return (
-    <article className="rounded-2xl border border-[var(--line)] bg-[var(--panel)] p-5">
+    <article className="glass rounded-2xl p-5">
       <p className="text-xs uppercase tracking-[0.18em] text-[var(--muted)]">{label}</p>
       <p className="serif mt-2 text-3xl">{value}</p>
       <p className="mt-2 text-sm text-[var(--muted)]">{detail}</p>

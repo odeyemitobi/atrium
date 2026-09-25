@@ -11,7 +11,7 @@ export default function ResidentIndexPage() {
           <Link
             key={unit.code}
             href={`/resident/${unit.code}`}
-            className="rounded-2xl border border-[var(--line)] bg-[var(--panel)] p-5 hover:border-[var(--moss)]"
+            className="glass rounded-2xl p-5 transition hover:border-[var(--moss)]"
           >
             <p className="text-xs uppercase tracking-[0.18em] text-[var(--muted)]">{unit.code}</p>
             <h2 className="mt-2 text-2xl">{unit.name}</h2>

@@ -1,35 +1,36 @@
 import Link from "next/link";
-import { estate, estateOutstandingNgn, units } from "@atrium/seed";
-import { formatNgn } from "@/lib/format";
+import { units } from "@atrium/seed";
 
 export default function HomePage() {
   const payer = units.find((unit) => unit.code === "B-018")!;
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-3xl flex-col justify-center px-5 py-16">
-      <p className="text-xs uppercase tracking-[0.28em] text-[var(--muted)]">Cedar Grove · Lekki</p>
-      <h1 className="mt-4 text-6xl leading-[0.9]">Atrium</h1>
-      <p className="mt-6 max-w-xl text-lg leading-relaxed text-[var(--muted)]">
-        Dues and treasury for Nigerian gated estates. A manager posts a levy. Residents pay in USDC
-        from Phantom. Every unit gets a receipt.
-      </p>
-      <p className="mt-4 text-sm text-[var(--ink)]">
-        {estate.name} is carrying {formatNgn(estateOutstandingNgn())} outstanding — the same ledger
-        EstateOS already modeled.
-      </p>
-      <div className="mt-10 flex flex-wrap gap-3">
-        <Link
-          href="/manager"
-          className="rounded-full bg-[var(--moss)] px-5 py-3 text-[var(--paper)]"
-        >
-          Enter as manager
-        </Link>
-        <Link
-          href={`/resident/${payer.code}`}
-          className="rounded-full border border-[var(--ink)] px-5 py-3"
-        >
-          Pay as {payer.name}
-        </Link>
+    <main className="page-veil pointer-events-none relative flex min-h-screen flex-col justify-between px-6 py-8 text-[var(--paper)] md:px-12">
+      <div className="pointer-events-auto flex items-start justify-between gap-8">
+        <p className="text-[11px] uppercase tracking-[0.42em] text-[#d8d0bf]">Cedar Grove · Lekki</p>
+        <p className="hidden max-w-sm text-right text-sm leading-relaxed text-[#d8d0bf] md:block">
+          Dues settle in the hall. Pay in USDC from Phantom.
+        </p>
+      </div>
+      <div className="pointer-events-auto max-w-xl">
+        <h1 className="text-7xl leading-[0.82] tracking-[-0.04em] md:text-8xl">Atrium</h1>
+        <p className="mt-6 max-w-md text-lg leading-relaxed text-[#d8d0bf]">
+          A living estate. Dues settle in the hall.
+        </p>
+        <div className="mt-8 flex flex-wrap gap-3">
+          <Link
+            href="/manager"
+            className="rounded-full bg-[var(--bronze)] px-5 py-3 text-[#14110c] shadow-lg shadow-[rgba(176,138,74,0.28)]"
+          >
+            Enter as manager
+          </Link>
+          <Link
+            href={`/resident/${payer.code}`}
+            className="rounded-full border border-[var(--paper)]/40 px-5 py-3"
+          >
+            Pay as {payer.name}
+          </Link>
+        </div>
       </div>
     </main>
   );
