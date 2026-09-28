@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { WalletButton } from "./wallet-button";
@@ -16,7 +17,8 @@ export function Shell({
   return (
     <div className="page-veil mx-auto min-h-screen max-w-5xl px-5 py-6">
       <header className="glass flex flex-wrap items-center justify-between gap-4 rounded-2xl px-4 py-3">
-        <Link href="/" className="serif text-2xl tracking-tight">
+        <Link href="/" className="serif flex items-center gap-2.5 text-2xl tracking-tight">
+          <Image src="/brand/atrium-mark.svg" alt="" width={32} height={32} className="rounded-lg" />
           Atrium
         </Link>
         <nav className="flex items-center gap-4 text-sm">

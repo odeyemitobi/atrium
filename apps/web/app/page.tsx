@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import { units } from "@atrium/seed";
 
@@ -7,7 +8,10 @@ export default function HomePage() {
   return (
     <main className="page-veil pointer-events-none relative flex min-h-screen flex-col justify-between px-6 py-8 text-[var(--paper)] md:px-12">
       <div className="pointer-events-auto flex items-start justify-between gap-8">
-        <p className="text-[11px] uppercase tracking-[0.42em] text-[#d8d0bf]">Cedar Grove · Lekki</p>
+        <div className="flex items-center gap-3">
+          <Image src="/brand/atrium-mark.svg" alt="Atrium" width={40} height={40} className="rounded-xl" priority />
+          <p className="text-[11px] uppercase tracking-[0.42em] text-[#d8d0bf]">Cedar Grove · Lekki</p>
+        </div>
         <p className="hidden max-w-sm text-right text-sm leading-relaxed text-[#d8d0bf] md:block">
           Dues settle in the hall. Pay in USDC from Phantom.
         </p>
