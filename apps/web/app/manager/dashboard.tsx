@@ -10,9 +10,10 @@ import {
   type EstateSnapshot
 } from "@/lib/chain";
 import { formatNgn, formatUsdc, percent } from "@/lib/format";
-import { explorerAccount } from "@/lib/ledger";
 import Link from "next/link";
+import { PasscodeField } from "./passcode";
 import { PostLevyForm } from "./post-levy";
+import { SpendForm } from "./spend";
 
 export function ManagerDashboard() {
   const [snapshot, setSnapshot] = useState<EstateSnapshot | null>(null);
@@ -101,8 +102,17 @@ export function ManagerDashboard() {
         })}
       </section>
 
-      <div className="mt-10">
+      <div className="mt-10 space-y-4">
+        <PasscodeField />
         <PostLevyForm onPosted={() => void load()} />
+        <SpendForm treasuryUsdc={snapshot?.treasuryUsdc ?? null} onPaid={() => void load()} />
+        <p className="text-sm text-[#d8d0bf]">
+          Every payment in and out is listed on the{" "}
+          <Link href="/treasury" className="underline underline-offset-2">
+            public treasury page
+          </Link>
+          .
+        </p>
       </div>
 
       <section className="mt-10">
@@ -146,14 +156,12 @@ export function ManagerDashboard() {
                     return (
                       <td key={levy.pubkey} className="px-4 py-4">
                         {paid && receipt ? (
-                          <a
-                            href={explorerAccount(receipt.receipt)}
-                            target="_blank"
-                            rel="noreferrer"
+                          <Link
+                            href={`/receipt/${receipt.receipt}`}
                             className="text-[var(--good)] underline-offset-2 hover:underline"
                           >
                             Paid
-                          </a>
+                          </Link>
                         ) : (
                           <span className="text-[var(--warn)]">Due</span>
                         )}

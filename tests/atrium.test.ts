@@ -15,13 +15,18 @@ import {
 } from "../packages/seed/src/index";
 import {
   DEFAULT_PROGRAM_ID,
+  DEVNET_USDC_MINT,
+  SPEND_ACCOUNT_SIZE,
   decodeEstate,
   decodeLevy,
   decodeReceipt,
+  decodeSpend,
   discriminator,
+  disburseIx,
   estatePda,
   levyPda,
   receiptPda,
+  spendPda,
   unitPda
 } from "../packages/sdk/src/index";
 import { Keypair } from "@solana/web3.js";
@@ -128,5 +133,45 @@ describe("program addresses", () => {
     expect(decodedReceipt.payer.equals(payer)).toBe(true);
     expect(decodedReceipt.amount).toBe(13_949_333n);
     expect(decodedReceipt.paidAt).toBe(1_700_000_000n);
+  });
+
+  it("builds disburse and decodes the spend record it creates", () => {
+    const manager = Keypair.generate().publicKey;
+    const recipient = Keypair.generate().publicKey;
+    const [estateKey] = estatePda(manager, encodeEstateName(), DEFAULT_PROGRAM_ID);
+    const nonce = 1_759_000_000_000n;
+
+    const ix = disburseIx({
+      manager,
+      estate: estateKey,
+      recipient,
+      nonce,
+      amount: 2_000_000,
+      memo: "Diesel — Ikeja depot",
+      mint: DEVNET_USDC_MINT,
+      programId: DEFAULT_PROGRAM_ID
+    });
+    expect(ix.data.subarray(0, 8).equals(discriminator("disburse"))).toBe(true);
+    expect(ix.data.readBigUInt64LE(8)).toBe(nonce);
+    expect(ix.data.readBigUInt64LE(16)).toBe(2_000_000n);
+    expect(ix.data).toHaveLength(8 + 8 + 8 + 32);
+    expect(ix.keys[0]?.isSigner).toBe(true);
+    expect(ix.keys[4]?.pubkey.equals(spendPda(estateKey, nonce, DEFAULT_PROGRAM_ID)[0])).toBe(true);
+
+    const spendData = Buffer.alloc(SPEND_ACCOUNT_SIZE);
+    estateKey.toBuffer().copy(spendData, 8);
+    recipient.toBuffer().copy(spendData, 40);
+    spendData.writeBigUInt64LE(2_000_000n, 72);
+    Buffer.from(encodeLevyTitle("Diesel — Ikeja depot")).copy(spendData, 80);
+    spendData.writeBigInt64LE(1_759_000_000n, 112);
+    spendData.writeBigUInt64LE(nonce, 120);
+    spendData[128] = 254;
+    const spend = decodeSpend(spendData);
+    expect(SPEND_ACCOUNT_SIZE).toBe(129);
+    expect(spend.estate.equals(estateKey)).toBe(true);
+    expect(spend.recipient.equals(recipient)).toBe(true);
+    expect(spend.amount).toBe(2_000_000n);
+    expect(spend.memo).toBe("Diesel — Ikeja depot");
+    expect(spend.nonce).toBe(nonce);
   });
 });

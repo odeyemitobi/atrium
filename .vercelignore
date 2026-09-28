@@ -1,0 +1,6 @@
+.deploy
+.env*
+!.env.example
+target
+**/node_modules
+**/.next

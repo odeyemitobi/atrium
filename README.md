@@ -66,7 +66,11 @@ NEXT_PUBLIC_ATRIUM_MANAGER=HPE2LaJoEHTsMmfv75bRCADqifyCfappD2hfHGaqEMux
 NEXT_PUBLIC_ATRIUM_ESTATE_NAME=Cedar Grove Estate
 ```
 
-Connect Phantom and pay an unpaid levy. The manager board and resident ledger read treasury, levies, and receipts from Devnet. Post a levy from `/manager` — it calls `post_levy`.
+Connect Phantom and pay an unpaid levy. On a phone, the Connect button reopens the page inside the Phantom app. The manager board and resident ledger read treasury, levies, and receipts from Devnet.
+
+From `/manager`, with the manager passcode (`ATRIUM_MANAGER_PASSCODE`), post a levy (`post_levy`) or pay a supplier out of the treasury (`disburse`, which writes a public spend record). `/treasury` lists every payment in and out, and each receipt has a shareable page at `/receipt/<address>`.
+
+Upgrade the deployed program after `cargo +solana build --release --target sbpf-solana-solana` and copying the `.so` to `target/deploy/` with `npm run deploy:devnet`; the script detects an existing program and upgrades it in place.
 
 ## Out of scope
 

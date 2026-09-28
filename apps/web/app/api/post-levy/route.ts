@@ -1,21 +1,17 @@
 import { encodeLevyTitle, ngnToUsdcBase } from "@atrium/seed";
-import {
-  decodeEstate,
-  estatePda,
-  encodeEstateName,
-  postLevyIx,
-  programIdFromEnv
-} from "@atrium/sdk";
-import { Connection, Keypair, PublicKey, Transaction } from "@solana/web3.js";
-import { existsSync, readFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { decodeEstate, postLevyIx } from "@atrium/sdk";
 import { NextResponse } from "next/server";
+import {
+  errorResponse,
+  managerEstate,
+  rejectUnlessManager,
+  sendAsManager,
+  serverConnection
+} from "@/lib/server/manager";
 import { MAX_DEMO_LEVIES } from "@/lib/solana";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-const RPC = process.env.NEXT_PUBLIC_SOLANA_RPC ?? "https://api.devnet.solana.com";
 
 type Body = {
   title?: string;
@@ -24,28 +20,10 @@ type Body = {
   dueTs?: number;
 };
 
-function managerKeypair(): Keypair {
-  const env = process.env.ATRIUM_MANAGER_SECRET;
-  if (env) {
-    return Keypair.fromSecretKey(Uint8Array.from(JSON.parse(env) as number[]));
-  }
-  for (const rel of [".deploy/manager.json", "../../.deploy/manager.json"]) {
-    const file = resolve(process.cwd(), rel);
-    if (existsSync(file)) {
-      return Keypair.fromSecretKey(
-        Uint8Array.from(JSON.parse(readFileSync(file, "utf8")) as number[])
-      );
-    }
-  }
-  throw new Error("Manager key is not configured on this host.");
-}
-
-function expectedManager(): PublicKey | null {
-  const raw = process.env.NEXT_PUBLIC_ATRIUM_MANAGER;
-  return raw ? new PublicKey(raw) : null;
-}
-
 export async function POST(request: Request) {
+  const denied = rejectUnlessManager(request);
+  if (denied) return denied;
+
   try {
     const body = (await request.json()) as Body;
     const title = body.title?.trim() ?? "";
@@ -64,22 +42,18 @@ export async function POST(request: Request) {
     if (kind === null) {
       return NextResponse.json({ error: "Kind must be service or diesel." }, { status: 400 });
     }
-    if (!Number.isFinite(amountNgn) || amountNgn < 1_500) {
-      return NextResponse.json({ error: "Amount must be at least ₦1,500 per unit." }, { status: 400 });
+    if (!Number.isFinite(amountNgn) || amountNgn < 1_500 || amountNgn > 5_000_000) {
+      return NextResponse.json(
+        { error: "Amount must be between ₦1,500 and ₦5,000,000 per unit." },
+        { status: 400 }
+      );
     }
     if (!Number.isFinite(dueTs) || dueTs < 0) {
       return NextResponse.json({ error: "Due date is required." }, { status: 400 });
     }
 
-    const manager = managerKeypair();
-    const expected = expectedManager();
-    if (expected && !manager.publicKey.equals(expected)) {
-      return NextResponse.json({ error: "Manager key does not match the configured estate." }, { status: 500 });
-    }
-
-    const programId = programIdFromEnv();
-    const [estate] = estatePda(manager.publicKey, encodeEstateName(), programId);
-    const connection = new Connection(RPC, "confirmed");
+    const { manager, estate, programId } = managerEstate();
+    const connection = serverConnection();
     const info = await connection.getAccountInfo(estate);
     if (!info) {
       return NextResponse.json({ error: "Cedar Grove estate is not on this program yet." }, { status: 404 });
@@ -93,30 +67,21 @@ export async function POST(request: Request) {
       );
     }
 
-    const ix = postLevyIx({
-      manager: manager.publicKey,
-      estate,
-      index,
-      kind,
-      title,
-      amountPerUnit: ngnToUsdcBase(Math.round(amountNgn)),
-      dueTs: Math.floor(dueTs),
-      programId
-    });
-
-    const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash();
-    const tx = new Transaction({
-      feePayer: manager.publicKey,
-      blockhash,
-      lastValidBlockHeight
-    }).add(ix);
-    tx.sign(manager);
-    const signature = await connection.sendRawTransaction(tx.serialize(), { skipPreflight: false });
-    await connection.confirmTransaction({ signature, blockhash, lastValidBlockHeight }, "confirmed");
+    const signature = await sendAsManager(connection, manager, [
+      postLevyIx({
+        manager: manager.publicKey,
+        estate,
+        index,
+        kind,
+        title,
+        amountPerUnit: ngnToUsdcBase(Math.round(amountNgn)),
+        dueTs: Math.floor(dueTs),
+        programId
+      })
+    ]);
 
     return NextResponse.json({ signature, index });
   } catch (error) {
-    const text = error instanceof Error ? error.message : "Could not post levy.";
-    return NextResponse.json({ error: text.split("\n")[0] }, { status: 500 });
+    return errorResponse(error, "Could not post levy.");
   }
 }

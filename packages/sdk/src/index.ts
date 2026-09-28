@@ -26,8 +26,11 @@ export const SEEDS = {
   estate: "estate",
   unit: "unit",
   levy: "levy",
-  receipt: "receipt"
+  receipt: "receipt",
+  spend: "spend"
 } as const;
+
+export const SPEND_ACCOUNT_SIZE = 8 + 32 + 32 + 8 + 32 + 8 + 8 + 1;
 
 export function programIdFromEnv(): PublicKey {
   const raw = process.env.NEXT_PUBLIC_ATRIUM_PROGRAM_ID;
@@ -85,6 +88,17 @@ export function receiptPda(
 ): [PublicKey, number] {
   return PublicKey.findProgramAddressSync(
     [Buffer.from(SEEDS.receipt), levy.toBuffer(), unit.toBuffer()],
+    programId
+  );
+}
+
+export function spendPda(
+  estate: PublicKey,
+  nonce: bigint,
+  programId = programIdFromEnv()
+): [PublicKey, number] {
+  return PublicKey.findProgramAddressSync(
+    [Buffer.from(SEEDS.spend), estate.toBuffer(), u64(nonce)],
     programId
   );
 }
@@ -216,6 +230,43 @@ export function payLevyIx(args: {
       { pubkey: SystemProgram.programId, isSigner: false, isWritable: false }
     ],
     data: discriminator("pay_levy")
+  });
+}
+
+export function disburseIx(args: {
+  manager: PublicKey;
+  estate: PublicKey;
+  recipient: PublicKey;
+  nonce: bigint;
+  amount: number | bigint;
+  memo: string;
+  mint?: PublicKey;
+  programId?: PublicKey;
+}): TransactionInstruction {
+  const programId = args.programId ?? programIdFromEnv();
+  const mint = args.mint ?? mintFromEnv();
+  const [spend] = spendPda(args.estate, args.nonce, programId);
+  const treasury = getAssociatedTokenAddressSync(mint, args.estate, true);
+  const recipientAta = getAssociatedTokenAddressSync(mint, args.recipient, true);
+  const data = Buffer.concat([
+    discriminator("disburse"),
+    u64(args.nonce),
+    u64(args.amount),
+    Buffer.from(encodeLevyTitle(args.memo))
+  ]);
+
+  return new TransactionInstruction({
+    programId,
+    keys: [
+      { pubkey: args.manager, isSigner: true, isWritable: true },
+      { pubkey: args.estate, isSigner: false, isWritable: false },
+      { pubkey: treasury, isSigner: false, isWritable: true },
+      { pubkey: recipientAta, isSigner: false, isWritable: true },
+      { pubkey: spend, isSigner: false, isWritable: true },
+      { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
+      { pubkey: SystemProgram.programId, isSigner: false, isWritable: false }
+    ],
+    data
   });
 }
 
@@ -360,6 +411,33 @@ export function decodeReceipt(data: Uint8Array): DecodedReceipt {
     paidAt: readI64LE(data, 144),
     bump: data[152]!
   };
+}
+
+export type DecodedSpend = {
+  estate: PublicKey;
+  recipient: PublicKey;
+  amount: bigint;
+  memo: string;
+  paidAt: bigint;
+  nonce: bigint;
+  bump: number;
+};
+
+export function decodeSpend(data: Uint8Array): DecodedSpend {
+  if (data.length < SPEND_ACCOUNT_SIZE) throw new Error("spend account too small");
+  return {
+    estate: new PublicKey(data.subarray(8, 40)),
+    recipient: new PublicKey(data.subarray(40, 72)),
+    amount: readU64LE(data, 72),
+    memo: paddedUtf8(data, 80, 32),
+    paidAt: readI64LE(data, 112),
+    nonce: readU64LE(data, 120),
+    bump: data[128]!
+  };
+}
+
+export function accountDiscriminator(name: string): Buffer {
+  return Buffer.from(sha256.digest(`account:${name}`)).subarray(0, 8);
 }
 
 export function readTokenAmount(data: Uint8Array): bigint {

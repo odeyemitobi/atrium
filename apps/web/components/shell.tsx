@@ -28,6 +28,9 @@ export function Shell({
           <Link href="/resident" className="hover:underline">
             Resident
           </Link>
+          <Link href="/treasury" className="hover:underline">
+            Treasury
+          </Link>
           <WalletButton />
         </nav>
       </header>

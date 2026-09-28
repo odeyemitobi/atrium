@@ -1,9 +1,9 @@
 "use client";
 
 import { useAccounts, useConnect, useDisconnect } from "@phantom/react-sdk";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { shortKey } from "@/lib/format";
-import { connectPhantom } from "@/lib/phantom";
+import { connectPhantom, needsPhantomApp, phantomBrowseUrl } from "@/lib/phantom";
 
 export function WalletButton() {
   const { connect, isConnecting } = useConnect();
@@ -11,6 +11,11 @@ export function WalletButton() {
   const accounts = useAccounts();
   const [fallback, setFallback] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [mobileApp, setMobileApp] = useState(false);
+
+  useEffect(() => {
+    setMobileApp(needsPhantomApp());
+  }, []);
 
   const address =
     accounts?.find((item) => "address" in item && typeof item.address === "string")?.address ??
@@ -18,6 +23,10 @@ export function WalletButton() {
 
   async function onConnect() {
     setError(null);
+    if (needsPhantomApp()) {
+      window.location.href = phantomBrowseUrl();
+      return;
+    }
     try {
       const result = await connect({ provider: "injected" });
       const next = result?.addresses?.find((item) => item.address)?.address;
@@ -60,7 +69,7 @@ export function WalletButton() {
         disabled={isConnecting}
         className="rounded-full bg-[var(--moss)] px-4 py-2 text-sm text-[var(--paper)]"
       >
-        {isConnecting ? "Connecting…" : "Connect Phantom"}
+        {isConnecting ? "Connecting…" : mobileApp ? "Open in Phantom" : "Connect Phantom"}
       </button>
       {error ? <p className="max-w-56 text-right text-xs text-[var(--clay)]">{error}</p> : null}
     </div>

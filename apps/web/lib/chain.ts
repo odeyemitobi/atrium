@@ -1,15 +1,16 @@
 import {
   amountPerUnitNgn,
   levies,
-  ngnToUsdcBase,
   units,
   usdcBaseToNgn,
   type LevyKind
 } from "@atrium/seed";
 import {
+  SPEND_ACCOUNT_SIZE,
   decodeEstate,
   decodeLevy,
   decodeReceipt,
+  decodeSpend,
   levyPda,
   mintFromEnv,
   readTokenAmount,
@@ -151,6 +152,37 @@ export async function fetchEstateSnapshot(): Promise<EstateSnapshot> {
   };
 }
 
+export type ChainSpend = {
+  address: string;
+  recipient: string;
+  amount: number;
+  memo: string;
+  paidAt: number;
+};
+
+export async function fetchSpends(): Promise<ChainSpend[]> {
+  const configured = configuredEstatePda();
+  if (!configured) return [];
+  const accounts = await getConnection().getProgramAccounts(configured.programId, {
+    filters: [
+      { dataSize: SPEND_ACCOUNT_SIZE },
+      { memcmp: { offset: 8, bytes: configured.estate.toBase58() } }
+    ]
+  });
+  return accounts
+    .map(({ pubkey, account }) => {
+      const spend = decodeSpend(account.data);
+      return {
+        address: pubkey.toBase58(),
+        recipient: spend.recipient.toBase58(),
+        amount: Number(spend.amount),
+        memo: spend.memo,
+        paidAt: Number(spend.paidAt)
+      };
+    })
+    .sort((a, b) => b.paidAt - a.paidAt);
+}
+
 export function isChainPaid(
   unitCode: string,
   levyIndex: number,
@@ -181,10 +213,4 @@ export function demoUsdcHint(levy: ChainLevy): string {
 
 export function nextDueTs(days = 14): number {
   return Math.floor(Date.now() / 1000) + days * 24 * 60 * 60;
-}
-
-export function seededAmountPerUnit(levyId: string): number {
-  const levy = levies.find((item) => item.id === levyId);
-  if (!levy) return 0;
-  return ngnToUsdcBase(amountPerUnitNgn(levy));
 }

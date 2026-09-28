@@ -15,6 +15,7 @@ import { resolve } from "node:path";
 const RPC = process.env.NEXT_PUBLIC_SOLANA_RPC ?? "https://api.devnet.solana.com";
 const BUFFER_HEADER = 37;
 const PROGRAM_ACCOUNT_SIZE = 36;
+const PROGRAMDATA_HEADER = 45;
 const CHUNK = 850;
 const WRITE_GAP_MS = 400;
 const LOADER = new PublicKey("BPFLoaderUpgradeab1e11111111111111111111111");
@@ -97,6 +98,28 @@ function closeIx(closePk: PublicKey, recipient: PublicKey, authority: PublicKey)
   });
 }
 
+function upgradeIx(
+  programData: PublicKey,
+  program: PublicKey,
+  buffer: PublicKey,
+  spill: PublicKey,
+  authority: PublicKey
+) {
+  return new TransactionInstruction({
+    programId: LOADER,
+    keys: [
+      { pubkey: programData, isSigner: false, isWritable: true },
+      { pubkey: program, isSigner: false, isWritable: true },
+      { pubkey: buffer, isSigner: false, isWritable: true },
+      { pubkey: spill, isSigner: false, isWritable: true },
+      { pubkey: SYSVAR_RENT_PUBKEY, isSigner: false, isWritable: false },
+      { pubkey: SYSVAR_CLOCK_PUBKEY, isSigner: false, isWritable: false },
+      { pubkey: authority, isSigner: true, isWritable: false }
+    ],
+    data: Buffer.from([3, 0, 0, 0])
+  });
+}
+
 function fees() {
   return [
     ComputeBudgetProgram.setComputeUnitLimit({ units: 200_000 }),
@@ -147,25 +170,12 @@ function writtenOffset(accountData: Buffer, program: Buffer) {
   return offset;
 }
 
-async function main() {
-  const programPath = resolve("target/deploy/atrium.so");
-  const manager = loadKeypair(resolve(".deploy/manager.json"));
-  const program = loadKeypair(resolve(".deploy/program.json"));
-  const bufferPath = resolve(".deploy/buffer.json");
-  const programBytes = Buffer.from(readFileSync(programPath));
-  const connection = new Connection(RPC, "confirmed");
-  const programData = PublicKey.findProgramAddressSync([program.publicKey.toBuffer()], LOADER)[0];
-
-  console.log("rpc", RPC);
-  console.log("manager", manager.publicKey.toBase58());
-  console.log("program", program.publicKey.toBase58());
-  console.log("bytes", programBytes.length);
-
-  const existing = await connection.getAccountInfo(program.publicKey);
-  if (existing) {
-    throw new Error("program already exists; this script only does the first deploy");
-  }
-
+async function uploadBuffer(
+  connection: Connection,
+  manager: Keypair,
+  bufferPath: string,
+  programBytes: Buffer
+): Promise<Keypair> {
   let buffer = existsSync(bufferPath) ? loadKeypair(bufferPath) : Keypair.generate();
   if (!existsSync(bufferPath)) saveKeypair(bufferPath, buffer);
 
@@ -208,7 +218,43 @@ async function main() {
     }
     await sleep(WRITE_GAP_MS);
   }
+  return buffer;
+}
 
+async function main() {
+  const programPath = resolve("target/deploy/atrium.so");
+  const manager = loadKeypair(resolve(".deploy/manager.json"));
+  const program = loadKeypair(resolve(".deploy/program.json"));
+  const bufferPath = resolve(".deploy/buffer.json");
+  const programBytes = Buffer.from(readFileSync(programPath));
+  const connection = new Connection(RPC, "confirmed");
+  const programData = PublicKey.findProgramAddressSync([program.publicKey.toBuffer()], LOADER)[0];
+
+  console.log("rpc", RPC);
+  console.log("manager", manager.publicKey.toBase58());
+  console.log("program", program.publicKey.toBase58());
+  console.log("bytes", programBytes.length);
+
+  const existing = await connection.getAccountInfo(program.publicKey);
+  if (existing) {
+    const dataInfo = await connection.getAccountInfo(programData);
+    if (!dataInfo) throw new Error("program exists but its ProgramData account is missing");
+    const capacity = dataInfo.data.length - PROGRAMDATA_HEADER;
+    if (programBytes.length > capacity) {
+      throw new Error(
+        `new binary is ${programBytes.length} bytes but the program slot holds ${capacity}; extend the program first`
+      );
+    }
+    const buffer = await uploadBuffer(connection, manager, bufferPath, programBytes);
+    console.log("upgrading program");
+    const sig = await send(connection, [manager], [
+      upgradeIx(programData, program.publicKey, buffer.publicKey, manager.publicKey, manager.publicKey)
+    ]);
+    console.log("upgraded", program.publicKey.toBase58(), sig);
+    return;
+  }
+
+  const buffer = await uploadBuffer(connection, manager, bufferPath, programBytes);
   const programLamports = await connection.getMinimumBalanceForRentExemption(PROGRAM_ACCOUNT_SIZE);
   console.log("deploying program account");
   const sig = await send(connection, [manager, program], [

@@ -10,6 +10,7 @@ pub const ESTATE_SEED: &[u8] = b"estate";
 pub const UNIT_SEED: &[u8] = b"unit";
 pub const LEVY_SEED: &[u8] = b"levy";
 pub const RECEIPT_SEED: &[u8] = b"receipt";
+pub const SPEND_SEED: &[u8] = b"spend";
 
 #[program]
 pub mod atrium {
@@ -103,7 +104,7 @@ pub mod atrium {
         let amount = ctx.accounts.levy.amount_per_unit;
         transfer(
             CpiContext::new(
-                ctx.accounts.token_program.to_account_info(),
+                ctx.accounts.token_program.key(),
                 Transfer {
                     from: ctx.accounts.payer_ata.to_account_info(),
                     to: ctx.accounts.treasury.to_account_info(),
@@ -130,6 +131,52 @@ pub mod atrium {
             .ok_or(AtriumError::Overflow)?;
         Ok(())
     }
+
+    pub fn disburse(ctx: Context<Disburse>, nonce: u64, amount: u64, memo: [u8; 32]) -> Result<()> {
+        require!(amount > 0, AtriumError::InvalidAmount);
+        require!(
+            ctx.accounts.treasury.amount >= amount,
+            AtriumError::InsufficientTreasury
+        );
+
+        let estate = &ctx.accounts.estate;
+        let bump = [estate.bump];
+        let seeds: &[&[u8]] = &[ESTATE_SEED, estate.manager.as_ref(), estate.name.as_ref(), &bump];
+        transfer(
+            CpiContext::new_with_signer(
+                ctx.accounts.token_program.key(),
+                Transfer {
+                    from: ctx.accounts.treasury.to_account_info(),
+                    to: ctx.accounts.recipient_ata.to_account_info(),
+                    authority: estate.to_account_info(),
+                },
+                &[seeds],
+            ),
+            amount,
+        )?;
+
+        let spend = &mut ctx.accounts.spend;
+        spend.estate = ctx.accounts.estate.key();
+        spend.recipient = ctx.accounts.recipient_ata.owner;
+        spend.amount = amount;
+        spend.memo = memo;
+        spend.paid_at = Clock::get()?.unix_timestamp;
+        spend.nonce = nonce;
+        spend.bump = ctx.bumps.spend;
+        Ok(())
+    }
+}
+
+#[account]
+#[derive(InitSpace)]
+pub struct Spend {
+    pub estate: Pubkey,
+    pub recipient: Pubkey,
+    pub amount: u64,
+    pub memo: [u8; 32],
+    pub paid_at: i64,
+    pub nonce: u64,
+    pub bump: u8,
 }
 
 #[account]
@@ -271,6 +318,36 @@ pub struct PayLevy<'info> {
     pub system_program: Program<'info, System>,
 }
 
+#[derive(Accounts)]
+#[instruction(nonce: u64)]
+pub struct Disburse<'info> {
+    #[account(mut)]
+    pub manager: Signer<'info>,
+    #[account(has_one = manager @ AtriumError::Unauthorized)]
+    pub estate: Account<'info, Estate>,
+    #[account(
+        mut,
+        constraint = treasury.mint == estate.mint @ AtriumError::MintMismatch,
+        constraint = treasury.owner == estate.key() @ AtriumError::TreasuryMismatch
+    )]
+    pub treasury: Account<'info, TokenAccount>,
+    #[account(
+        mut,
+        constraint = recipient_ata.mint == estate.mint @ AtriumError::MintMismatch
+    )]
+    pub recipient_ata: Account<'info, TokenAccount>,
+    #[account(
+        init,
+        payer = manager,
+        space = 8 + Spend::INIT_SPACE,
+        seeds = [SPEND_SEED, estate.key().as_ref(), &nonce.to_le_bytes()],
+        bump
+    )]
+    pub spend: Account<'info, Spend>,
+    pub token_program: Program<'info, Token>,
+    pub system_program: Program<'info, System>,
+}
+
 #[error_code]
 pub enum AtriumError {
     #[msg("Signer is not the estate manager")]
@@ -289,6 +366,8 @@ pub enum AtriumError {
     TreasuryMismatch,
     #[msg("Counter overflow")]
     Overflow,
+    #[msg("Treasury does not hold enough to cover this spend")]
+    InsufficientTreasury,
 }
 
 #[cfg(test)]
@@ -302,6 +381,7 @@ mod tests {
         assert_eq!(UnitAccount::INIT_SPACE, 32 + 32 + 16 + 1);
         assert_eq!(Levy::INIT_SPACE, 32 + 1 + 32 + 8 + 8 + 2 + 2 + 1);
         assert_eq!(Receipt::INIT_SPACE, 32 + 32 + 32 + 32 + 8 + 8 + 1);
+        assert_eq!(Spend::INIT_SPACE, 32 + 32 + 8 + 32 + 8 + 8 + 1);
     }
 
     #[test]

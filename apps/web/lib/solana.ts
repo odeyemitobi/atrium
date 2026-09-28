@@ -1,11 +1,4 @@
-import {
-  amountPerUnitNgn,
-  encodeEstateName,
-  estate,
-  levyKindByte,
-  levies,
-  ngnToUsdcBase
-} from "@atrium/seed";
+import { encodeEstateName, estate, levyKindByte, levies } from "@atrium/seed";
 import {
   DEFAULT_PROGRAM_ID,
   DEVNET_USDC_MINT,
@@ -147,22 +140,45 @@ export async function postLevyWithWallet(args: {
   );
 }
 
-export async function postLevyViaApi(args: {
+const PASSCODE_KEY = "atrium:manager-passcode";
+
+export function savedPasscode(): string {
+  if (typeof window === "undefined") return "";
+  return window.sessionStorage.getItem(PASSCODE_KEY) ?? "";
+}
+
+export function savePasscode(value: string) {
+  window.sessionStorage.setItem(PASSCODE_KEY, value);
+}
+
+async function managerApi(path: string, body: unknown, fallback: string): Promise<string> {
+  const response = await fetch(path, {
+    method: "POST",
+    headers: { "content-type": "application/json", "x-atrium-passcode": savedPasscode() },
+    body: JSON.stringify(body)
+  });
+  const payload = (await response.json()) as { signature?: string; error?: string };
+  if (!response.ok || !payload.signature) {
+    throw new Error(payload.error ?? fallback);
+  }
+  return payload.signature;
+}
+
+export function postLevyViaApi(args: {
   title: string;
   kind: 0 | 1;
   amountNgn: number;
   dueTs: number;
 }): Promise<string> {
-  const response = await fetch("/api/post-levy", {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify(args)
-  });
-  const payload = (await response.json()) as { signature?: string; error?: string };
-  if (!response.ok || !payload.signature) {
-    throw new Error(payload.error ?? "Could not post levy.");
-  }
-  return payload.signature;
+  return managerApi("/api/post-levy", args, "Could not post levy.");
+}
+
+export function disburseViaApi(args: {
+  recipient: string;
+  amountNgn: number;
+  memo: string;
+}): Promise<string> {
+  return managerApi("/api/disburse", args, "Could not pay from the treasury.");
 }
 
 export async function payerUsdcBalance(
@@ -189,11 +205,4 @@ function friendlyPayError(error: unknown, needed: number): string {
   }
   return text.split("\n")[0] ?? "Payment failed.";
 }
-
-export function levyOnChainAmount(levyId: string): number {
-  const levy = levies.find((item) => item.id === levyId);
-  if (!levy) return 0;
-  return ngnToUsdcBase(amountPerUnitNgn(levy));
-}
-
 export { DEFAULT_PROGRAM_ID, DEVNET_USDC_MINT, estate, levyKindByte };

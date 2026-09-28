@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import type { ChainLevy } from "@/lib/chain";
 import { formatNgn } from "@/lib/format";
@@ -61,12 +62,18 @@ export function ReceiptLink({
   signature?: string;
   address?: string;
 }) {
-  const href = signature
-    ? explorerTx(signature)
-    : address
-      ? `https://explorer.solana.com/address/${address}?cluster=devnet`
-      : null;
-  if (!href) return null;
+  if (address) {
+    return (
+      <Link
+        href={`/receipt/${address}`}
+        className="text-sm text-(--moss) underline-offset-2 hover:underline"
+      >
+        View receipt
+      </Link>
+    );
+  }
+  if (!signature) return null;
+  const href = explorerTx(signature);
   return (
     <a
       href={href}
